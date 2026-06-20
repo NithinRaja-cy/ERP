@@ -58,7 +58,6 @@ export default function SettingsPage() {
                </div>
              )}
 
-             <Button variant="outline" className="w-full justify-start text-slate-300 border-slate-700 hover:bg-slate-800">Invite Users</Button>
           </CardContent>
         </Card>
         
@@ -93,7 +92,6 @@ export default function SettingsPage() {
                </div>
              )}
 
-             <Button variant="outline" className="w-full justify-start text-slate-300 border-slate-700 hover:bg-slate-800">Approval Chains</Button>
           </CardContent>
         </Card>
       </div>

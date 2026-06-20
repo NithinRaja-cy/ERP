@@ -1,13 +1,14 @@
-from datetime import datetime
-from sqlalchemy import Column, DateTime, Boolean
+import uuid
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, DateTime, Boolean, func
 from app.core.database import Base
 
-class SoftDeleteBase(Base):
-    __abstract__ = True
-    
-    is_deleted = Column(Boolean, default=False, nullable=False)
+class TimestampMixin:
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    def soft_delete(self):
-        self.is_deleted = True
-        self.deleted_at = datetime.utcnow()
+class UUIDBase(Base, TimestampMixin):
+    __abstract__ = True
+    # Using String(36) to ensure 100% compatibility across PostgreSQL and SQLite
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)

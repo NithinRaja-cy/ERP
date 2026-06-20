@@ -1,59 +1,71 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, String, Float, ForeignKey, Text, DateTime, Integer, Index
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from app.models.base import SoftDeleteBase
+from app.models.base import UUIDBase
 
-class BOM(SoftDeleteBase):
-    __tablename__ = 'bom'
+class BOM(UUIDBase):
+    __tablename__ = "boms"
 
-    id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False, unique=True) # The product being manufactured
-    name = Column(String(255), nullable=False)
-    version = Column(String(50), default='1.0')
-    is_active = Column(Boolean, default=True)
-    
-    product = relationship("Product")
-    components = relationship("BOMComponent", back_populates="bom")
+    name = Column(String(255), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    version = Column(String(20), default="1.0", nullable=False)
+    yield_qty = Column(Float, default=1.0, nullable=False)
+    estimated_cost = Column(Float, default=0.0, nullable=False)
+    notes = Column(Text, nullable=True)
+    is_active = Column(String(5), default="true", nullable=False)
 
-class BOMComponent(SoftDeleteBase):
-    __tablename__ = 'bom_components'
+    product = relationship("Product", back_populates="finished_boms")
+    components = relationship("BOMComponent", back_populates="bom", cascade="all, delete-orphan")
+    manufacturing_orders = relationship("ManufacturingOrder", back_populates="bom")
 
-    id = Column(Integer, primary_key=True, index=True)
-    bom_id = Column(Integer, ForeignKey('bom.id'), nullable=False)
-    component_product_id = Column(Integer, ForeignKey('products.id'), nullable=False) # The raw material or sub-assembly
+
+class BOMComponent(UUIDBase):
+    __tablename__ = "bom_components"
+
+    bom_id = Column(String(36), ForeignKey("boms.id", ondelete="CASCADE"), nullable=False, index=True)
+    component_product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
     quantity = Column(Float, nullable=False)
-    uom_id = Column(Integer, ForeignKey('uom.id'), nullable=False)
-    
+    unit_of_measure = Column(String(20), default="pcs", nullable=False)
+    notes = Column(Text, nullable=True)
+
     bom = relationship("BOM", back_populates="components")
-    component_product = relationship("Product")
-    uom = relationship("UOM")
+    component_product = relationship("Product", back_populates="bom_components")
 
-class ManufacturingOrder(SoftDeleteBase):
-    __tablename__ = 'manufacturing_orders'
 
-    id = Column(Integer, primary_key=True, index=True)
-    order_number = Column(String(100), unique=True, index=True, nullable=False)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    bom_id = Column(Integer, ForeignKey('bom.id'), nullable=False)
-    quantity_to_produce = Column(Integer, nullable=False)
-    status = Column(String(50), default='DRAFT') # DRAFT, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
-    sales_order_id = Column(Integer, ForeignKey('sales_orders.id'), nullable=True) # If triggered by SO
-    start_date = Column(DateTime)
-    end_date = Column(DateTime)
-    
+class ManufacturingOrder(UUIDBase):
+    __tablename__ = "manufacturing_orders"
+
+    mo_number = Column(String(50), unique=True, nullable=False, index=True)
+    bom_id = Column(String(36), ForeignKey("boms.id"), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    planned_qty = Column(Float, nullable=False)
+    produced_qty = Column(Float, default=0.0, nullable=False)
+    status = Column(
+        String(20), nullable=False, default="draft", index=True
+    )  # draft|ready|in_progress|completed|cancelled
+    scheduled_start = Column(DateTime(timezone=True), nullable=True)
+    scheduled_end = Column(DateTime(timezone=True), nullable=True)
+    actual_start = Column(DateTime(timezone=True), nullable=True)
+    actual_end = Column(DateTime(timezone=True), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String(255), nullable=True)
+
+    bom = relationship("BOM", back_populates="manufacturing_orders")
     product = relationship("Product")
-    bom = relationship("BOM")
-    sales_order = relationship("SalesOrder")
-    work_orders = relationship("WorkOrder", back_populates="manufacturing_order")
+    components = relationship("ManufacturingComponent", back_populates="manufacturing_order", cascade="all, delete-orphan")
 
-class WorkOrder(SoftDeleteBase):
-    __tablename__ = 'work_orders'
+    __table_args__ = (
+        Index("ix_mo_status_created", "status", "created_at"),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
-    manufacturing_order_id = Column(Integer, ForeignKey('manufacturing_orders.id'), nullable=False)
-    operation_name = Column(String(255), nullable=False)
-    status = Column(String(50), default='PENDING') # PENDING, IN_PROGRESS, COMPLETED
-    scheduled_start = Column(DateTime)
-    scheduled_end = Column(DateTime)
-    
-    manufacturing_order = relationship("ManufacturingOrder", back_populates="work_orders")
+
+class ManufacturingComponent(UUIDBase):
+    __tablename__ = "manufacturing_components"
+
+    manufacturing_order_id = Column(String(36), ForeignKey("manufacturing_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    required_qty = Column(Float, nullable=False)
+    consumed_qty = Column(Float, default=0.0, nullable=False)
+    is_available = Column(String(5), default="false", nullable=False)
+
+    manufacturing_order = relationship("ManufacturingOrder", back_populates="components")
+    product = relationship("Product")

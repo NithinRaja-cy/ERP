@@ -1,8 +1,9 @@
-import { Home, Package, ShoppingCart, Activity, Settings, Factory, Truck, Users } from 'lucide-react';
+import { Home, Package, ShoppingCart, Activity, Settings, Factory, Truck, Users, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 const navItems = [
   { name: 'Dashboard', icon: Home, href: '/dashboard' },
+  { name: 'Customers', icon: UserCheck, href: '/customers' },
   { name: 'Sales Orders', icon: ShoppingCart, href: '/sales' },
   { name: 'Manufacturing', icon: Factory, href: '/manufacturing' },
   { name: 'Inventory', icon: Package, href: '/inventory' },

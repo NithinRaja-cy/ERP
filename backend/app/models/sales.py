@@ -1,30 +1,42 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, String, Float, ForeignKey, Text, DateTime, Index
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from app.models.base import SoftDeleteBase
+from app.models.base import UUIDBase
 
-class SalesOrder(SoftDeleteBase):
-    __tablename__ = 'sales_orders'
+class SalesOrder(UUIDBase):
+    __tablename__ = "sales_orders"
 
-    id = Column(Integer, primary_key=True, index=True)
-    order_number = Column(String(100), unique=True, index=True, nullable=False)
-    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
-    status = Column(String(50), default='DRAFT') # DRAFT, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
-    total_amount = Column(Float, default=0.0)
-    order_date = Column(DateTime, default=datetime.utcnow)
-    
-    customer = relationship("Customer")
-    lines = relationship("SalesOrderLine", back_populates="order")
+    order_number = Column(String(50), unique=True, nullable=False, index=True)
+    customer_id = Column(String(36), ForeignKey("customers.id"), nullable=False, index=True)
+    status = Column(
+        String(20), nullable=False, default="draft", index=True
+    )  # draft|confirmed|delivered|closed|cancelled
+    subtotal = Column(Float, default=0.0, nullable=False)
+    tax_rate = Column(Float, default=0.0, nullable=False)
+    tax_amount = Column(Float, default=0.0, nullable=False)
+    discount_amount = Column(Float, default=0.0, nullable=False)
+    total_amount = Column(Float, default=0.0, nullable=False)
+    notes = Column(Text, nullable=True)
+    delivery_date = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(String(255), nullable=True)
 
-class SalesOrderLine(SoftDeleteBase):
-    __tablename__ = 'sales_order_lines'
+    customer = relationship("Customer", back_populates="sales_orders")
+    items = relationship("SalesOrderItem", back_populates="sales_order", cascade="all, delete-orphan")
 
-    id = Column(Integer, primary_key=True, index=True)
-    sales_order_id = Column(Integer, ForeignKey('sales_orders.id'), nullable=False)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    quantity = Column(Integer, nullable=False)
+    __table_args__ = (
+        Index("ix_so_status_created", "status", "created_at"),
+        Index("ix_so_customer_status", "customer_id", "status"),
+    )
+
+
+class SalesOrderItem(UUIDBase):
+    __tablename__ = "sales_order_items"
+
+    sales_order_id = Column(String(36), ForeignKey("sales_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Float, nullable=False)
     unit_price = Column(Float, nullable=False)
-    total_price = Column(Float, nullable=False)
-    
-    order = relationship("SalesOrder", back_populates="lines")
-    product = relationship("Product")
+    discount = Column(Float, default=0.0, nullable=False)
+    total = Column(Float, nullable=False)
+
+    sales_order = relationship("SalesOrder", back_populates="items")
+    product = relationship("Product", back_populates="sales_order_items")

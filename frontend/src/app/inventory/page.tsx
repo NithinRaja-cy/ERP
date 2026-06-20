@@ -5,9 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Edit2, Trash2 } from "lucide-react";
 
-const initialStock = [
+interface StockItem {
+  sku: string;
+  name: string;
+  onHand: number;
+  reserved: number;
+  available: number;
+  location: string;
+}
+
+const initialStock: StockItem[] = [
   { sku: "WD-001", name: "Teak Wood Planks (Premium)", onHand: 320, reserved: 80, available: 240, location: "Warehouse A - Wood Section" },
   { sku: "WD-002", name: "Oak Timber Logs", onHand: 150, reserved: 40, available: 110, location: "Warehouse A - Wood Section" },
   { sku: "FM-101", name: "Queen Size Bed Frame (Teak)", onHand: 28, reserved: 12, available: 16, location: "Finished Goods B1" },
@@ -18,22 +27,55 @@ const initialStock = [
 ];
 
 export default function InventoryPage() {
-  const [stock, setStock] = useState(initialStock);
+  const [stock, setStock] = useState<StockItem[]>(initialStock);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newStock, setNewStock] = useState({
-    sku: "",
-    name: "",
-    onHand: 0,
-    reserved: 0,
-    location: "",
-  });
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
 
-  const handleAddStock = (e: React.FormEvent) => {
+  // Form states
+  const [sku, setSku] = useState("");
+  const [name, setName] = useState("");
+  const [onHand, setOnHand] = useState(0);
+  const [reserved, setReserved] = useState(0);
+  const [location, setLocation] = useState("");
+
+  const openAddModal = () => {
+    setEditingItem(null);
+    setSku("");
+    setName("");
+    setOnHand(0);
+    setReserved(0);
+    setLocation("");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (item: StockItem) => {
+    setEditingItem(item);
+    setSku(item.sku);
+    setName(item.name);
+    setOnHand(item.onHand);
+    setReserved(item.reserved);
+    setLocation(item.location);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const available = newStock.onHand - newStock.reserved;
-    setStock([...stock, { ...newStock, available }]);
+    const available = onHand - reserved;
+
+    if (editingItem) {
+      setStock(stock.map(item => item.sku === editingItem.sku ? {
+        sku, name, onHand, reserved, available, location
+      } : item));
+    } else {
+      setStock([...stock, { sku, name, onHand, reserved, available, location }]);
+    }
     setIsModalOpen(false);
-    setNewStock({ sku: "", name: "", onHand: 0, reserved: 0, location: "" });
+  };
+
+  const handleDelete = (skuToDelete: string) => {
+    if (confirm("Are you sure you want to delete this stock item?")) {
+      setStock(stock.filter(item => item.sku !== skuToDelete));
+    }
   };
 
   return (
@@ -43,7 +85,7 @@ export default function InventoryPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white">Inventory Management</h2>
           <p className="text-slate-400 mt-1">Real-time stock ledger, reservations, and locations.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+        <Button onClick={openAddModal} className="bg-indigo-600 hover:bg-indigo-700 text-white">
           <Plus className="mr-2 h-4 w-4" /> Add Stock
         </Button>
       </div>
@@ -62,6 +104,7 @@ export default function InventoryPage() {
                 <TableHead className="text-slate-400">Reserved</TableHead>
                 <TableHead className="text-slate-400">Available</TableHead>
                 <TableHead className="text-slate-400">Location</TableHead>
+                <TableHead className="text-slate-400 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -73,6 +116,16 @@ export default function InventoryPage() {
                   <TableCell className="text-rose-400">{item.reserved}</TableCell>
                   <TableCell className="text-emerald-400 font-bold">{item.available}</TableCell>
                   <TableCell className="text-slate-300">{item.location}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end space-x-2">
+                      <Button onClick={() => openEditModal(item)} variant="ghost" size="icon" className="h-8 w-8 text-indigo-400 hover:bg-indigo-500/10">
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button onClick={() => handleDelete(item.sku)} variant="ghost" size="icon" className="h-8 w-8 text-rose-400 hover:bg-rose-500/10">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -80,7 +133,7 @@ export default function InventoryPage() {
         </CardContent>
       </Card>
 
-      {/* Add Stock Modal */}
+      {/* Add / Edit Stock Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative">
@@ -90,16 +143,19 @@ export default function InventoryPage() {
             >
               <X className="h-5 w-5" />
             </button>
-            <h3 className="text-xl font-bold text-white mb-6">Add New Stock</h3>
-            <form onSubmit={handleAddStock} className="space-y-4">
+            <h3 className="text-xl font-bold text-white mb-6">
+              {editingItem ? "Edit Stock Item" : "Add New Stock"}
+            </h3>
+            <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-300 block mb-1">SKU</label>
                 <input 
                   type="text" 
                   required
-                  value={newStock.sku}
-                  onChange={(e) => setNewStock({...newStock, sku: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  disabled={editingItem !== null}
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
                   placeholder="e.g. RM-003"
                 />
               </div>
@@ -108,8 +164,8 @@ export default function InventoryPage() {
                 <input 
                   type="text" 
                   required
-                  value={newStock.name}
-                  onChange={(e) => setNewStock({...newStock, name: e.target.value})}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="e.g. Steel Beams"
                 />
@@ -121,8 +177,8 @@ export default function InventoryPage() {
                     type="number" 
                     required
                     min="0"
-                    value={newStock.onHand}
-                    onChange={(e) => setNewStock({...newStock, onHand: parseInt(e.target.value) || 0})}
+                    value={onHand}
+                    onChange={(e) => setOnHand(parseInt(e.target.value) || 0)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
@@ -132,8 +188,8 @@ export default function InventoryPage() {
                     type="number" 
                     required
                     min="0"
-                    value={newStock.reserved}
-                    onChange={(e) => setNewStock({...newStock, reserved: parseInt(e.target.value) || 0})}
+                    value={reserved}
+                    onChange={(e) => setReserved(parseInt(e.target.value) || 0)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
@@ -143,8 +199,8 @@ export default function InventoryPage() {
                 <input 
                   type="text" 
                   required
-                  value={newStock.location}
-                  onChange={(e) => setNewStock({...newStock, location: e.target.value})}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="e.g. Warehouse C"
                 />

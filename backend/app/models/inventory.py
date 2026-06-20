@@ -1,51 +1,35 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, String, Float, ForeignKey, Text, Index
 from sqlalchemy.orm import relationship
-from app.models.base import SoftDeleteBase
+from app.models.base import UUIDBase
 
-class Warehouse(SoftDeleteBase):
-    __tablename__ = 'warehouses'
+class StockMovement(UUIDBase):
+    __tablename__ = "stock_movements"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, nullable=False, index=True)
-    location_address = Column(String(255))
-    
-    locations = relationship("Location", back_populates="warehouse", lazy="select")
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    quantity_delta = Column(Float, nullable=False)  # positive = in, negative = out
+    movement_type = Column(
+        String(50), nullable=False, index=True
+    )  # purchase_receipt|sales_delivery|mfg_consumption|mfg_output|adjustment|transfer
+    reference = Column(String(255), nullable=True)  # order number or MO number
+    reference_id = Column(String(36), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_by = Column(String(255), nullable=True)
 
-class Location(SoftDeleteBase):
-    __tablename__ = 'locations'
+    product = relationship("Product", back_populates="stock_movements")
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, index=True)
-    type = Column(String(50), nullable=False) # e.g., 'RAW_MATERIAL_STORE', 'PRODUCTION_AREA', 'FINISHED_GOODS', 'DISPATCH'
-    
-    warehouse_id = Column(Integer, ForeignKey('warehouses.id'), nullable=False)
-    
-    warehouse = relationship("Warehouse", back_populates="locations")
+    __table_args__ = (
+        Index("ix_movements_product_type", "product_id", "movement_type"),
+        Index("ix_movements_created", "created_at"),
+    )
 
-class InventoryTransaction(SoftDeleteBase):
-    __tablename__ = 'inventory_transactions'
 
-    id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
-    transaction_type = Column(String(50), nullable=False) # IN, OUT, TRANSFER
-    quantity = Column(Integer, nullable=False)
-    reference_type = Column(String(50)) # e.g., 'SALES_ORDER', 'PURCHASE_ORDER', 'MANUFACTURING_ORDER'
-    reference_id = Column(Integer)
-    
-    product = relationship("Product")
-    location = relationship("Location")
+class InventoryReservation(UUIDBase):
+    __tablename__ = "inventory_reservations"
 
-class StockReservation(SoftDeleteBase):
-    __tablename__ = 'stock_reservations'
+    product_id = Column(String(36), ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Float, nullable=False)
+    reference_type = Column(String(50), nullable=False)  # sales_order | manufacturing_order
+    reference_id = Column(String(36), nullable=False, index=True)
+    is_released = Column(String(5), default="false", nullable=False)
 
-    id = Column(Integer, primary_key=True, index=True)
-    reservation_number = Column(String(100), unique=True, index=True)
-    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
-    location_id = Column(Integer, ForeignKey('locations.id'), nullable=False)
-    sales_order_id = Column(Integer, nullable=False) # Assuming referencing sales_orders.id directly
-    reserved_quantity = Column(Integer, nullable=False)
-    status = Column(String(50), default='ACTIVE') # ACTIVE, RELEASED, FULFILLED
-    
-    product = relationship("Product")
-    location = relationship("Location")
+    product = relationship("Product", back_populates="inventory_reservations")
