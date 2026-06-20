@@ -12,7 +12,7 @@ import ThemeToggle from "@/components/ui/ThemeToggle";
 import { Menu, X } from "lucide-react";
 
 const ROLE_ROUTES: Record<string, string[]> = {
-  admin:         ['/dashboard', '/sales', '/manufacturing', '/inventory', '/purchasing', '/deliveries', '/analytics', '/settings', '/admin-settings', '/customers'],
+  admin:         ['/dashboard', '/sales', '/manufacturing', '/inventory', '/purchasing', '/deliveries', '/analytics', '/settings', '/admin-settings', '/customers', '/bom', '/audit-logs'],
   customer:      ['/customer-dashboard', '/customer-products', '/customer-orders'],
   purchasing:    ['/purchasing-dashboard', '/purchasing-dashboard/orders'],
   sales:         ['/sales-dashboard', '/sales-dashboard/products', '/sales-dashboard/orders'],

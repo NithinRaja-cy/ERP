@@ -22,8 +22,35 @@ export default function RegisterPage() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+
+      // ── Save auth ──────────────────────────────────────────────
       localStorage.setItem('token', 'simulated_jwt_token_customer');
       localStorage.setItem('role', 'customer');
+
+      // ── Persist customer record so admin can see it ────────────
+      const existing = JSON.parse(localStorage.getItem('erp_registered_customers') || '[]');
+      const alreadyExists = existing.some((c: { email: string }) => c.email === email);
+      if (!alreadyExists) {
+        const newRecord = {
+          id: `CUST-${String(Date.now()).slice(-5)}`,
+          name,
+          email,
+          phone: '',
+          company: 'Self-Registered',
+          city: '',
+          creditLimit: 50000,
+          outstandingBalance: 0,
+          notes: 'Customer registered via the SmartERP portal self-signup.',
+          status: 'ACTIVE',
+          role: 'customer',
+          permission: 'CUSTOMER_PORTAL',
+          registeredAt: new Date().toISOString(),
+          isPortalUser: true,
+        };
+        existing.push(newRecord);
+        localStorage.setItem('erp_registered_customers', JSON.stringify(existing));
+      }
+
       window.location.href = "/customer-dashboard";
     }, 1000);
   };

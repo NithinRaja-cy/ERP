@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,13 +18,15 @@ interface Customer {
   outstandingBalance: number;
   notes: string;
   status: "ACTIVE" | "INACTIVE";
+  permission?: string;
+  isPortalUser?: boolean;
 }
 
 const initialCustomers: Customer[] = [
-  { id: "CUST-001", name: "Priya Sharma", email: "priya@gmail.com", phone: "+91 98450 12345", company: "Royal Furniture Mart", city: "Bangalore", creditLimit: 200000, outstandingBalance: 45000, notes: "Reliable dealer, prefers premium teak items.", status: "ACTIVE" },
-  { id: "CUST-002", name: "Arun Menon", email: "arun.m@gmail.com", phone: "+91 97420 54321", company: "Menon Designs", city: "Kochi", creditLimit: 150000, outstandingBalance: 72000, notes: "Order cycle every 2 weeks.", status: "ACTIVE" },
-  { id: "CUST-003", name: "Deepa Nair", email: "deepa.nair@outlook.com", phone: "+91 94470 98765", company: "Malabar Homes", city: "Calicut", creditLimit: 300000, outstandingBalance: 55000, notes: "Bulk buyer for residential furniture setups.", status: "ACTIVE" },
-  { id: "CUST-004", name: "Kunal Gupta", email: "kunal@guptatraders.in", phone: "+91 81234 56789", company: "Gupta Traders", city: "Chennai", creditLimit: 100000, outstandingBalance: 0, notes: "Always pays early, eligible for discount.", status: "ACTIVE" },
+  { id: "CUST-001", name: "Priya Sharma", email: "priya@gmail.com", phone: "+91 98450 12345", company: "Royal Furniture Mart", city: "Bangalore", creditLimit: 200000, outstandingBalance: 45000, notes: "Reliable dealer, prefers premium teak items.", status: "ACTIVE", permission: "CUSTOMER_PORTAL" },
+  { id: "CUST-002", name: "Arun Menon", email: "arun.m@gmail.com", phone: "+91 97420 54321", company: "Menon Designs", city: "Kochi", creditLimit: 150000, outstandingBalance: 72000, notes: "Order cycle every 2 weeks.", status: "ACTIVE", permission: "CUSTOMER_PORTAL" },
+  { id: "CUST-003", name: "Deepa Nair", email: "deepa.nair@outlook.com", phone: "+91 94470 98765", company: "Malabar Homes", city: "Calicut", creditLimit: 300000, outstandingBalance: 55000, notes: "Bulk buyer for residential furniture setups.", status: "ACTIVE", permission: "CUSTOMER_PORTAL" },
+  { id: "CUST-004", name: "Kunal Gupta", email: "kunal@guptatraders.in", phone: "+91 81234 56789", company: "Gupta Traders", city: "Chennai", creditLimit: 100000, outstandingBalance: 0, notes: "Always pays early, eligible for discount.", status: "ACTIVE", permission: "CUSTOMER_PORTAL" },
 ];
 
 export default function CustomersPage() {
@@ -43,6 +45,31 @@ export default function CustomersPage() {
   const [outstandingBalance, setOutstandingBalance] = useState(0);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
+  const [permission, setPermission] = useState("CUSTOMER_PORTAL");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("erp_registered_customers");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const merged = [...initialCustomers];
+          parsed.forEach((c: Customer) => {
+            if (!merged.some(m => m.email.toLowerCase() === c.email.toLowerCase())) {
+              merged.push({
+                ...c,
+                permission: c.permission || "CUSTOMER_PORTAL",
+                isPortalUser: true
+              });
+            }
+          });
+          setCustomers(merged);
+        }
+      } catch (err) {
+        console.error("Error parsing registered customers:", err);
+      }
+    }
+  }, []);
 
   const openAddModal = () => {
     setEditingCustomer(null);
@@ -55,6 +82,7 @@ export default function CustomersPage() {
     setOutstandingBalance(0);
     setNotes("");
     setStatus("ACTIVE");
+    setPermission("CUSTOMER_PORTAL");
     setIsModalOpen(true);
   };
 
@@ -69,23 +97,33 @@ export default function CustomersPage() {
     setOutstandingBalance(cust.outstandingBalance);
     setNotes(cust.notes);
     setStatus(cust.status);
+    setPermission(cust.permission || "CUSTOMER_PORTAL");
     setIsModalOpen(true);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    let updatedList: Customer[];
     if (editingCustomer) {
       // Edit
-      setCustomers(customers.map(c => c.id === editingCustomer.id ? {
-        ...c, name, email, phone, company, city, creditLimit, outstandingBalance, notes, status
-      } : c));
+      updatedList = customers.map(c => c.id === editingCustomer.id ? {
+        ...c, name, email, phone, company, city, creditLimit, outstandingBalance, notes, status, permission
+      } : c);
     } else {
       // Add
       const newId = `CUST-00${customers.length + 1}`;
-      setCustomers([...customers, {
-        id: newId, name, email, phone, company, city, creditLimit, outstandingBalance, notes, status
-      }]);
+      updatedList = [...customers, {
+        id: newId, name, email, phone, company, city, creditLimit, outstandingBalance, notes, status, permission
+      }];
     }
+    setCustomers(updatedList);
+
+    // Save back to local storage if edited/added user was self-registered (or to keep storage in sync)
+    const portalUsers = updatedList.filter(c => c.isPortalUser || c.company === "Self-Registered");
+    if (portalUsers.length > 0) {
+      localStorage.setItem("erp_registered_customers", JSON.stringify(portalUsers));
+    }
+
     setIsModalOpen(false);
   };
 
@@ -179,6 +217,7 @@ export default function CustomersPage() {
                 <TableHead className="text-slate-400">Company & Location</TableHead>
                 <TableHead className="text-slate-400">Outstanding Receivable</TableHead>
                 <TableHead className="text-slate-400">Credit Limit</TableHead>
+                <TableHead className="text-slate-400">Permission</TableHead>
                 <TableHead className="text-slate-400">Status</TableHead>
                 <TableHead className="text-slate-400 text-right">Actions</TableHead>
               </TableRow>
@@ -189,21 +228,33 @@ export default function CustomersPage() {
                   <TableCell className="font-medium text-indigo-400">{item.id}</TableCell>
                   <TableCell>
                     <div>
-                      <div className="text-white font-medium">{item.name}</div>
+                      <div className="text-white font-medium flex items-center gap-1.5 flex-wrap">
+                        {item.name}
+                        {item.isPortalUser && (
+                          <Badge className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1 py-0 text-[10px] uppercase font-bold tracking-wide">
+                            Portal User
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">{item.email}</div>
-                      <div className="text-xs text-slate-500">{item.phone}</div>
+                      {item.phone && <div className="text-xs text-slate-500">{item.phone}</div>}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="text-slate-300">{item.company}</div>
-                      <div className="text-xs text-slate-500">{item.city}</div>
+                      <div className="text-slate-300">{item.company || "—"}</div>
+                      {item.city && <div className="text-xs text-slate-500">{item.city}</div>}
                     </div>
                   </TableCell>
                   <TableCell className={item.outstandingBalance > 0 ? "text-rose-400 font-medium" : "text-slate-400"}>
                     ₹{item.outstandingBalance.toLocaleString()}
                   </TableCell>
                   <TableCell className="text-slate-300">₹{item.creditLimit.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/25">
+                      {item.permission || "CUSTOMER_PORTAL"}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={item.status === 'ACTIVE' ? 'default' : 'secondary'}
                       className={item.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' : 'bg-slate-800 text-slate-400'}>
@@ -297,7 +348,7 @@ export default function CustomersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-slate-300 block mb-1">City / Region</label>
                   <input 
@@ -317,6 +368,19 @@ export default function CustomersPage() {
                   >
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-300 block mb-1">Permission</label>
+                  <select
+                    value={permission}
+                    onChange={(e) => setPermission(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="CUSTOMER_PORTAL">CUSTOMER_PORTAL</option>
+                    <option value="ADMIN_FULL">ADMIN_FULL</option>
+                    <option value="SALES_AGENT">SALES_AGENT</option>
+                    <option value="MFG_OPERATOR">MFG_OPERATOR</option>
                   </select>
                 </div>
               </div>
