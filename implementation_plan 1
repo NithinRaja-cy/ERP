@@ -1,0 +1,99 @@
+# SmartERP – Enterprise-Grade Demand-to-Delivery Platform
+
+This is the comprehensive implementation plan for the SmartERP platform. It is designed as a fully integrated enterprise business management system handling the complete lifecycle from customer demand generation through procurement, manufacturing, inventory management, delivery execution, business analytics, and intelligent decision support.
+
+## User Review Required
+
+> [!IMPORTANT]
+> Please review this finalized enterprise-grade architecture plan. Once you give the go-ahead, we will immediately commence **Phase 1: Project Setup & Architecture Definition**. 
+> As part of Phase 1, we will set up the foundational directories, Docker Compose (including Redis/Celery for scheduling), and basic configurations.
+
+## Open Questions
+
+> [!WARNING]
+> 1. For the Background Scheduler, do you prefer we use Celery + Redis, or a lighter weight async scheduler like `APScheduler` or FastAPI's `BackgroundTasks` (for simplicity)?
+> 2. Will the Approval Workflow require multi-step approvals (e.g., Manager -> Director), or is a single-step approval sufficient for MVP?
+
+## Proposed Architecture
+
+The system will use a strict Service-Oriented Backend Architecture, augmented with Orchestration and Scheduling layers.
+
+### Backend Structure (`/backend`)
+```
+backend/
+└── app/
+    ├── api/            # API routing only
+    ├── core/           # Config, security, DB session, Celery setup
+    ├── models/         # SQLAlchemy ORM models (supporting Soft Deletes)
+    ├── schemas/        # Pydantic validation schemas
+    ├── repositories/   # DB access layer
+    ├── services/       # Core business logic
+    ├── orchestration/  # Business Orchestration Engine (Workflow central coordination)
+    ├── rules/          # Business Rules Engine
+    ├── scheduler/      # Background Scheduler & Automation Services
+    ├── analytics/      # Analytics & Business Health Monitoring
+    ├── master_data/    # Master Data Management (MDM)
+    ├── inventory/      # Reservation & Location Management
+    ├── manufacturing/  # Multi-Level BOMs & Production
+    ├── purchasing/     # Procurement Decision Engine
+    ├── delivery/       # Delivery Management Module
+    ├── approvals/      # Approval Workflow Framework
+    ├── notifications/  # Event-driven WebSocket pub/sub
+    ├── audit/          # Audit Compliance & Activity Timeline
+    ├── ai/             # Future-Ready AI Integration Layer (modular for LLMs)
+    └── utils/          # Helpers
+```
+
+### Database Schema Additions (PostgreSQL)
+All transactional and master data tables will implement **Soft Delete** (`is_deleted`, `deleted_at`).
+New/Updated core structures:
+1. **Master Data**: `products`, `customers`, `vendors`, `product_categories`, `uom` (Units of Measure).
+2. **Warehouse & Locations**: `warehouses`, `locations` (Raw Material Stores, Production Areas, Finished Goods, Dispatch). Inventory will be tracked per location.
+3. **Multi-Level BOMs**: `bom`, `bom_components` (supporting hierarchical parent-child relationships).
+4. **Delivery Management**: `delivery_orders`, `delivery_order_lines`.
+5. **Approvals**: `approval_requests`, `approval_history`.
+6. **Core Additions**: `stock_reservations`, `activity_logs`, `roles`, `permissions`, `role_permissions`.
+
+## Core Engines & Enterprise Systems
+
+### 1. Business Orchestration Engine
+Acts as the central coordination layer for all ERP workflows. Every business event passes through here to ensure dependencies are managed (e.g., SO -> Inventory -> MO -> PO -> Delivery -> Notifications -> Audit).
+
+### 2. Multi-Level BOM & Manufacturing
+Supports hierarchical BOMs (sub-assemblies). MOs will recursively calculate component requirements across all BOM levels.
+
+### 3. Warehouse & Location Management
+Inventory is location-aware. Stock movements, reservations, and receipts occur between specific locations (e.g., Receiving -> Raw Materials -> Production -> Finished Goods -> Dispatch).
+
+### 4. Delivery Management
+Automatically generates a Delivery Order from a fulfilled SO, managing dispatch details, inventory assignment from the Dispatch Area, and shipment tracking.
+
+### 5. Approval Workflow Framework & Business Rules Engine
+- **Approvals**: Configurable chains for high-value POs, MOs, and pricing.
+- **Rules Engine**: Centralized evaluation of conditions (low stock, delays, triggers) to decoupled automated actions.
+
+### 6. Background Scheduler
+Executes periodic operations: low-stock monitoring, analytics refresh, delayed order detection, and housekeeping.
+
+### 7. AI Integration & Business Health
+- **AI Layer**: Modular design ready to plug into LLMs (OpenAI, Gemini) for intelligent procurement, conversation, and insights.
+- **Business Health**: A top-level score calculated from Sales, Inventory, Manufacturing, and Procurement KPIs.
+
+## Development Phases
+
+1. **Phase 1: Project Initialization & Infrastructure**
+   - Setup FastAPI, Next.js, PostgreSQL, Redis, and Celery (if chosen) via Docker Compose. Establish the deep folder structure.
+2. **Phase 2: Master Data Management, RBAC & Core Models**
+   - Implement soft-delete SQLAlchemy models. Build MDM for Products, Warehouses, Locations, and Roles.
+3. **Phase 3: Inventory, Approvals & Basic Transactions**
+   - Implement location-aware Inventory logic, Reservations, and the Approval framework.
+4. **Phase 4: Multi-Level BOM & Procurement Orchestration**
+   - Build recursive BOM logic, Manufacturing Orders, and Purchase Orders.
+5. **Phase 5: Business Orchestration & Deliveries**
+   - Build the Orchestration Engine. Wire up the full SO -> MO/PO -> Delivery Order flow.
+6. **Phase 6: Rules Engine, Scheduler & AI/Analytics**
+   - Implement the Background Scheduler, Business Rules, Analytics Engine (Business Health Score), and modular AI layer.
+7. **Phase 7: Dashboard Command Center & Frontend**
+   - Build out the Next.js frontend, integrating WebSockets, Recharts, TanStack Table, and the Timeline UI.
+8. **Phase 8: End-to-End Testing & Polish**
+   - Verify the comprehensive enterprise workflows.
