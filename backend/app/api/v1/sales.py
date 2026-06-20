@@ -43,12 +43,13 @@ def list_orders(
     status: Optional[str] = None,
     customer_id: Optional[str] = None,
     search: Optional[str] = None,
+    view: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    items, total = get_sales_orders(db, status, customer_id, search, page, page_size)
+    items, total = get_sales_orders(db, status, customer_id, search, view, current_user, page, page_size)
     return PaginatedResponse(
         items=[_resp(so) for so in items],
         total=total, page=page, page_size=page_size,
@@ -58,7 +59,7 @@ def list_orders(
 
 @router.post("/orders", response_model=SalesOrderResponse, status_code=201)
 def create_order(data: SalesOrderCreate, db: Session = Depends(get_db), current_user=Depends(require_roles(["admin", "manager", "sales_executive"]))):
-    return _resp(create_sales_order(db, data, current_user.full_name))
+    return _resp(create_sales_order(db, data, current_user))
 
 
 @router.get("/orders/{order_id}", response_model=SalesOrderResponse)

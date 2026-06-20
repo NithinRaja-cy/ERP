@@ -10,6 +10,8 @@ from app.models.product import Product
 from app.schemas.manufacturing import BOMCreate, ManufacturingOrderCreate
 from app.services.inventory_service import record_movement, reserve_stock, release_reservation
 from app.services.audit_service import log_action
+from app.api.v1.activities import log_activity
+from app.models.user import User
 
 
 def _gen_mo_number(db: Session) -> str:
@@ -79,6 +81,8 @@ def create_bom(db: Session, data: BOMCreate, user_name: str = "System") -> BOM:
 def get_manufacturing_orders(
     db: Session,
     status: Optional[str] = None,
+    view: Optional[str] = None,
+    current_user: Optional[User] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[ManufacturingOrder], int]:
@@ -89,6 +93,8 @@ def get_manufacturing_orders(
     ).filter(ManufacturingOrder.deleted_at.is_(None))
     if status:
         q = q.filter(ManufacturingOrder.status == status)
+    if view == "my" and current_user:
+        q = q.filter(ManufacturingOrder.assigned_to == str(current_user.id))
     q = q.order_by(ManufacturingOrder.created_at.desc())
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
@@ -106,7 +112,7 @@ def get_manufacturing_order(db: Session, mo_id: str) -> ManufacturingOrder:
     return mo
 
 
-def create_manufacturing_order(db: Session, data: ManufacturingOrderCreate, user_name: str = "System") -> ManufacturingOrder:
+def create_manufacturing_order(db: Session, data: ManufacturingOrderCreate, current_user: User) -> ManufacturingOrder:
     bom = get_bom(db, data.bom_id)
 
     comp_rows = []
@@ -131,13 +137,14 @@ def create_manufacturing_order(db: Session, data: ManufacturingOrderCreate, user
         notes=data.notes,
         scheduled_start=data.scheduled_start,
         scheduled_end=data.scheduled_end,
-        created_by=user_name,
+        created_by=current_user.full_name,
+        assigned_to=str(current_user.id),
         components=comp_rows,
     )
     db.add(mo)
     db.commit()
     db.refresh(mo)
-    log_action(db, "create", "manufacturing_orders", str(mo.id), new_values={"mo_number": mo.mo_number}, user_name=user_name)
+    log_action(db, "create", "manufacturing_orders", str(mo.id), new_values={"mo_number": mo.mo_number}, user_name=current_user.full_name)
     db.commit()
     return get_manufacturing_order(db, str(mo.id))
 
@@ -189,17 +196,18 @@ def reserve_components(db: Session, mo_id: str, user_name: str = "System") -> Ma
     return get_manufacturing_order(db, mo_id)
 
 
-def start_manufacturing(db: Session, mo_id: str, user_name: str = "System") -> ManufacturingOrder:
+def start_manufacturing(db: Session, mo_id: str, current_user: User) -> ManufacturingOrder:
     mo = get_manufacturing_order(db, mo_id)
     if mo.status != "ready":
         raise HTTPException(status_code=400, detail=f"MO must be in 'ready' status to start")
     mo.status = "in_progress"
     mo.actual_start = datetime.now(timezone.utc)
+    log_activity(db, str(current_user.id), current_user.full_name, "MO Started", "Manufacturing", details=mo.mo_number)
     db.commit()
     return get_manufacturing_order(db, mo_id)
 
 
-def complete_manufacturing(db: Session, mo_id: str, user_name: str = "System") -> ManufacturingOrder:
+def complete_manufacturing(db: Session, mo_id: str, current_user: User) -> ManufacturingOrder:
     mo = get_manufacturing_order(db, mo_id)
     if mo.status != "in_progress":
         raise HTTPException(status_code=400, detail=f"MO must be 'in_progress' to complete")
@@ -209,7 +217,7 @@ def complete_manufacturing(db: Session, mo_id: str, user_name: str = "System") -
         record_movement(
             db, str(comp.product_id), -comp.required_qty,
             "mfg_consumption", mo.mo_number, mo_id,
-            created_by=user_name,
+            created_by=current_user.full_name,
         )
         comp.consumed_qty = comp.required_qty
 
@@ -220,14 +228,14 @@ def complete_manufacturing(db: Session, mo_id: str, user_name: str = "System") -
     record_movement(
         db, str(mo.product_id), mo.planned_qty,
         "mfg_output", mo.mo_number, mo_id,
-        created_by=user_name,
+        created_by=current_user.full_name,
     )
 
     mo.status = "completed"
     mo.produced_qty = mo.planned_qty
     mo.actual_end = datetime.now(timezone.utc)
-    db.commit()
-    log_action(db, "update", "manufacturing_orders", mo_id, new_values={"status": "completed"}, user_name=user_name)
+    log_action(db, "update", "manufacturing_orders", mo_id, new_values={"status": "completed"}, user_name=current_user.full_name)
+    log_activity(db, str(current_user.id), current_user.full_name, "MO Completed", "Manufacturing", details=mo.mo_number)
     db.commit()
     return get_manufacturing_order(db, mo_id)
 

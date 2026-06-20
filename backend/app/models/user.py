@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Index
+from sqlalchemy import Column, String, Boolean, Index, ForeignKey
 from sqlalchemy.orm import relationship
 from app.models.base import UUIDBase
 
@@ -30,10 +30,9 @@ class User(UUIDBase):
 class RefreshToken(UUIDBase):
     __tablename__ = "refresh_tokens"
 
-    user_id = Column(String(36), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash = Column(String(255), nullable=False, unique=True)
     expires_at = Column(String(50), nullable=False)
     is_revoked = Column(Boolean, default=False, nullable=False)
 
-    user = relationship("User", back_populates="refresh_tokens", foreign_keys=[user_id],
-                        primaryjoin="RefreshToken.user_id == cast(User.id, String)")
+    user = relationship("User", back_populates="refresh_tokens")

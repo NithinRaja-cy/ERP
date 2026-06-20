@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit3, X } from "lucide-react";
+import { Plus, Trash2, Edit3, X, Filter } from "lucide-react";
+import WorkflowTimeline from "@/components/dashboard/WorkflowTimeline";
 
 type SalesOrder = { id: string; customer: string; date: string; amount: string; status: string };
 
@@ -15,11 +17,29 @@ const initialOrders: SalesOrder[] = [
   { id: "SO-2026-003", customer: "Deepa Nair", date: "2026-06-20", amount: "₹55,000", status: "DRAFT" },
 ];
 
-export default function SalesOrdersPage() {
-  const [orders, setOrders] = useState<SalesOrder[]>(initialOrders);
+function SalesOrdersContent() {
+  const [orders, setOrders] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<SalesOrder | null>(null);
-  const [formData, setFormData] = useState({ customer: "", amount: "", status: "DRAFT" });
+  const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [formData, setFormData] = useState({ customer: "", amount: "", status: "draft" });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const view = searchParams.get('view') || 'all';
+
+  useEffect(() => {
+    fetchOrders();
+  }, [view]);
+
+  const fetchOrders = async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`http://localhost:8000/api/v1/sales/orders?view=${view}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setOrders(data.items || []);
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingOrder(null);
@@ -63,9 +83,16 @@ export default function SalesOrdersPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white">Sales Orders Management</h2>
           <p className="text-slate-400 mt-1">View sales workflows, edit booking statuses, and record offline transactions.</p>
         </div>
-        <Button onClick={handleOpenAdd} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-          <Plus className="mr-2 h-4 w-4" /> Create Sales Order
-        </Button>
+        <div className="flex gap-3">
+          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+            <Button size="sm" variant={view === 'all' ? 'secondary' : 'ghost'} className={view === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400'} onClick={() => router.push('/sales-dashboard/orders')}>
+              All Orders
+            </Button>
+            <Button size="sm" variant={view === 'my' ? 'secondary' : 'ghost'} className={view === 'my' ? 'bg-slate-800 text-white' : 'text-slate-400'} onClick={() => router.push('/sales-dashboard/orders?view=my')}>
+              My Orders
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Card className="bg-slate-900 border-slate-800">
@@ -88,26 +115,37 @@ export default function SalesOrdersPage() {
             <TableBody>
               {orders.map((order) => (
                 <TableRow key={order.id} className="border-slate-800 hover:bg-slate-800/50">
-                  <TableCell className="font-mono text-emerald-400">{order.id}</TableCell>
-                  <TableCell className="text-white font-medium">{order.customer}</TableCell>
-                  <TableCell className="text-slate-400">{order.date}</TableCell>
-                  <TableCell className="text-slate-300 font-semibold">{order.amount}</TableCell>
+                  <TableCell className="font-mono text-emerald-400">{order.order_number}</TableCell>
+                  <TableCell className="text-white font-medium">{order.customer_name || 'N/A'}</TableCell>
+                  <TableCell className="text-slate-400">{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</TableCell>
+                  <TableCell className="text-slate-300 font-semibold">₹{order.total_amount}</TableCell>
                   <TableCell>
-                    <Badge className={
-                      order.status === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                      order.status === 'PROCESSING' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-slate-700/10 text-slate-400 border-slate-800'
-                    } variant="outline">
-                      {order.status}
-                    </Badge>
+                    <WorkflowTimeline currentStatus={order.status} steps={['draft', 'confirmed', 'partially_delivered', 'delivered', 'cancelled']} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(order)} className="text-slate-400 hover:text-white">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(order.id)} className="text-slate-400 hover:text-rose-400">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {order.status === 'draft' && (
+                        <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10" onClick={async () => {
+                          const res = await fetch(`http://localhost:8000/api/v1/sales/orders/${order.id}/confirm`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          if(res.ok) fetchOrders();
+                        }}>
+                          Confirm
+                        </Button>
+                      )}
+                      {(order.status === 'confirmed' || order.status === 'partially_delivered') && (
+                        <Button size="sm" variant="outline" className="text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/10" onClick={async () => {
+                          const res = await fetch(`http://localhost:8000/api/v1/sales/orders/${order.id}/deliver`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          if(res.ok) fetchOrders();
+                        }}>
+                          Deliver
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -117,7 +155,6 @@ export default function SalesOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <Card className="bg-slate-900 border-slate-800 w-full max-w-md p-6 relative">
@@ -169,5 +206,13 @@ export default function SalesOrdersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SalesOrdersPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-400 p-6">Loading orders...</div>}>
+      <SalesOrdersContent />
+    </Suspense>
   );
 }

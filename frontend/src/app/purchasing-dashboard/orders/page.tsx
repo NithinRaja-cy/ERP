@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Edit3, X, Check } from "lucide-react";
+import WorkflowTimeline from "@/components/dashboard/WorkflowTimeline";
 
 type PurchaseOrder = { id: string; vendor: string; material: string; date: string; amount: string; status: string };
 
@@ -15,11 +17,29 @@ const initialOrders: PurchaseOrder[] = [
   { id: "PO-2026-003", vendor: "SteelCraft Hardware Hub", material: "Steel Chair Legs", date: "2026-06-20", amount: "₹18,500", status: "DRAFT" },
 ];
 
-export default function PurchasingOrdersPage() {
-  const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders);
+function PurchasingOrdersContent() {
+  const [orders, setOrders] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
-  const [formData, setFormData] = useState({ vendor: "", material: "", amount: "", status: "DRAFT" });
+  const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [formData, setFormData] = useState({ vendor: "", material: "", amount: "", status: "draft" });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const view = searchParams.get('view') || 'all';
+
+  useEffect(() => {
+    fetchOrders();
+  }, [view]);
+
+  const fetchOrders = async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`http://localhost:8000/api/v1/purchases/orders?view=${view}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setOrders(data.items || []);
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingOrder(null);
@@ -62,9 +82,16 @@ export default function PurchasingOrdersPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white">Purchase Orders</h2>
           <p className="text-slate-400 mt-1">Manage vendor POs, tracking details, and status updates.</p>
         </div>
-        <Button onClick={handleOpenAdd} className="bg-amber-600 hover:bg-amber-700 text-white">
-          <Plus className="mr-2 h-4 w-4" /> Create Purchase Order
-        </Button>
+        <div className="flex gap-3">
+          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+            <Button size="sm" variant={view === 'all' ? 'secondary' : 'ghost'} className={view === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400'} onClick={() => router.push('/purchasing-dashboard/orders')}>
+              All Orders
+            </Button>
+            <Button size="sm" variant={view === 'my' ? 'secondary' : 'ghost'} className={view === 'my' ? 'bg-slate-800 text-white' : 'text-slate-400'} onClick={() => router.push('/purchasing-dashboard/orders?view=my')}>
+              My Orders
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Card className="bg-slate-900 border-slate-800">
@@ -88,27 +115,43 @@ export default function PurchasingOrdersPage() {
             <TableBody>
               {orders.map((order) => (
                 <TableRow key={order.id} className="border-slate-800 hover:bg-slate-800/50">
-                  <TableCell className="font-mono text-amber-400">{order.id}</TableCell>
-                  <TableCell className="text-white font-medium">{order.vendor}</TableCell>
-                  <TableCell className="text-slate-300">{order.material}</TableCell>
-                  <TableCell className="text-slate-400">{order.date}</TableCell>
-                  <TableCell className="text-slate-300 font-semibold">{order.amount}</TableCell>
+                  <TableCell className="font-mono text-amber-400">{order.order_number}</TableCell>
+                  <TableCell className="text-white font-medium">{order.vendor_name || 'N/A'}</TableCell>
+                  <TableCell className="text-slate-300">{order.items?.map((i: any) => i.product_name).join(", ")}</TableCell>
+                  <TableCell className="text-slate-400">{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</TableCell>
+                  <TableCell className="text-slate-300 font-semibold">₹{order.total_amount}</TableCell>
                   <TableCell>
-                    <Badge className={
-                      order.status === 'RECEIVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                      order.status === 'PENDING_APPROVAL' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-slate-700/10 text-slate-400 border-slate-800'
-                    } variant="outline">
-                      {order.status}
-                    </Badge>
+                    <WorkflowTimeline currentStatus={order.status} steps={['draft', 'ordered', 'partially_received', 'received', 'cancelled']} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(order)} className="text-slate-400 hover:text-white">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(order.id)} className="text-slate-400 hover:text-rose-400">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {order.status === 'draft' && (
+                        <Button size="sm" variant="outline" className="text-amber-400 border-amber-500/20 hover:bg-amber-500/10" onClick={async () => {
+                          const res = await fetch(`http://localhost:8000/api/v1/purchases/orders/${order.id}/confirm`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          if(res.ok) fetchOrders();
+                        }}>
+                          Confirm
+                        </Button>
+                      )}
+                      {(order.status === 'ordered' || order.status === 'partially_received') && (
+                        <Button size="sm" variant="outline" className="text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/10" onClick={async () => {
+                          // Normally we'd send items, for demo we just send an empty list or fake one to avoid error
+                          const res = await fetch(`http://localhost:8000/api/v1/purchases/orders/${order.id}/receive`, {
+                            method: 'POST',
+                            headers: { 
+                              Authorization: `Bearer ${localStorage.getItem('token')}`,
+                              "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify(order.items.map((i: any) => ({ product_id: i.product_id, quantity_received: i.quantity_ordered })))
+                          });
+                          if(res.ok) fetchOrders();
+                        }}>
+                          Receive
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -118,7 +161,6 @@ export default function PurchasingOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <Card className="bg-slate-900 border-slate-800 w-full max-w-md p-6 relative">
@@ -179,5 +221,13 @@ export default function PurchasingOrdersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PurchasingOrdersPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-400 p-6">Loading orders...</div>}>
+      <PurchasingOrdersContent />
+    </Suspense>
   );
 }

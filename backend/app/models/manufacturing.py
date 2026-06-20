@@ -41,7 +41,8 @@ class ManufacturingOrder(UUIDBase):
     produced_qty = Column(Float, default=0.0, nullable=False)
     status = Column(
         String(20), nullable=False, default="draft", index=True
-    )  # draft|ready|in_progress|completed|cancelled
+    )  # draft|ready|in_progress|quality_check|completed|cancelled
+    assigned_to = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     scheduled_start = Column(DateTime(timezone=True), nullable=True)
     scheduled_end = Column(DateTime(timezone=True), nullable=True)
     actual_start = Column(DateTime(timezone=True), nullable=True)

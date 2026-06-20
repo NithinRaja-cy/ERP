@@ -34,6 +34,11 @@ yarn-error.log*
 postgres_data/
 redis_data/
 
+# SQLite database (local dev only)
+*.db
+*.sqlite
+*.sqlite3
+
 # IDE
 .vscode/
 .idea/

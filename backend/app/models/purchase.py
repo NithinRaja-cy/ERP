@@ -11,7 +11,8 @@ class PurchaseOrder(UUIDBase):
     vendor_id = Column(UUID(as_uuid=True), ForeignKey("vendors.id"), nullable=False, index=True)
     status = Column(
         String(20), nullable=False, default="draft", index=True
-    )  # draft|ordered|received|closed|cancelled
+    )  # draft|confirmed|partially_received|received|cancelled
+    assigned_to = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     subtotal = Column(Float, default=0.0, nullable=False)
     tax_amount = Column(Float, default=0.0, nullable=False)
     total_amount = Column(Float, default=0.0, nullable=False)

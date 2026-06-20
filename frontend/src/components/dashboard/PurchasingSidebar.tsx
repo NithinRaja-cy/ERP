@@ -5,7 +5,8 @@ import { LayoutDashboard, ShoppingBag, Store, LogOut } from 'lucide-react';
 
 const nav = [
   { name: 'Dashboard',          icon: LayoutDashboard, href: '/purchasing-dashboard' },
-  { name: 'Purchase Orders',    icon: ShoppingBag,     href: '/purchasing-dashboard/orders' },
+  { name: 'All Orders',         icon: ShoppingBag,     href: '/purchasing-dashboard/orders' },
+  { name: 'My Orders',          icon: ShoppingBag,     href: '/purchasing-dashboard/orders?view=my' },
   { name: 'Supplier Shops',     icon: Store,           href: '/purchasing-dashboard' },
 ];
 

@@ -1,4 +1,5 @@
 import RawMaterialShops from "@/components/dashboard/RawMaterialShops";
+import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
 
 export default function Dashboard() {
   return (
@@ -14,8 +15,14 @@ export default function Dashboard() {
         </div>
       </div>
       
-      <RawMaterialShops />
-      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <RawMaterialShops />
+        </div>
+        <div className="lg:col-span-1">
+          <ActivityTimeline />
+        </div>
+      </div>
     </div>
   );
 }

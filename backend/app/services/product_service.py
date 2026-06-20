@@ -7,6 +7,8 @@ from fastapi import HTTPException
 from app.models.product import Category, Product
 from app.schemas.product import ProductCreate, ProductUpdate, CategoryCreate
 from app.services.audit_service import log_action
+from app.api.v1.activities import log_activity
+from app.models.user import User
 
 
 def get_categories(db: Session) -> List[Category]:
@@ -64,7 +66,7 @@ def get_product_by_id(db: Session, product_id: str) -> Product:
     return p
 
 
-def create_product(db: Session, data: ProductCreate, user_name: str = "System") -> Product:
+def create_product(db: Session, data: ProductCreate, current_user: User) -> Product:
     existing = db.query(Product).filter(Product.sku == data.sku).first()
     if existing:
         raise HTTPException(status_code=400, detail=f"SKU '{data.sku}' already exists")
@@ -79,7 +81,8 @@ def create_product(db: Session, data: ProductCreate, user_name: str = "System") 
     db.add(p)
     db.commit()
     db.refresh(p)
-    log_action(db, "create", "products", str(p.id), new_values=data.model_dump(), user_name=user_name)
+    log_action(db, "create", "products", str(p.id), new_values=data.model_dump(), user_name=current_user.full_name)
+    log_activity(db, str(current_user.id), current_user.full_name, "Product Created", "Products", details=p.name)
     db.commit()
     return p
 

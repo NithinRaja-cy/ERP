@@ -12,6 +12,7 @@ from app.core.security import (
 from app.core.config import settings
 from app.models.user import User, RefreshToken
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserProfile
+from app.api.v1.activities import log_activity
 
 
 def register_user(db: Session, data: RegisterRequest) -> User:
@@ -59,6 +60,10 @@ def login_user(db: Session, data: LoginRequest) -> TokenResponse:
         is_revoked=False,
     )
     db.add(rt)
+    
+    # Log activity
+    log_activity(db, user_id_str, user.full_name, "User Login", "Auth")
+    
     db.commit()
 
     profile = UserProfile(

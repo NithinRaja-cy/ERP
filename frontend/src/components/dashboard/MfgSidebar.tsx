@@ -6,7 +6,8 @@ import { LayoutDashboard, Box, ClipboardList, BookOpen, LogOut } from 'lucide-re
 const nav = [
   { name: 'Dashboard',               icon: LayoutDashboard, href: '/mfg-dashboard' },
   { name: 'Products',                icon: Box,             href: '/mfg-dashboard/products' },
-  { name: 'Manufacturing Orders',    icon: ClipboardList,   href: '/mfg-dashboard/orders' },
+  { name: 'All Orders',              icon: ClipboardList,   href: '/mfg-dashboard/orders' },
+  { name: 'My Orders',               icon: ClipboardList,   href: '/mfg-dashboard/orders?view=my' },
   { name: 'Bill of Materials',       icon: BookOpen,        href: '/mfg-dashboard/bom' },
 ];
 

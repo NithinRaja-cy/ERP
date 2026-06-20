@@ -32,7 +32,7 @@ def list_movements(
 
 @router.post("/adjust")
 def adjust(data: StockAdjustRequest, db: Session = Depends(get_db), current_user=Depends(require_roles(["admin", "manager"]))):
-    mv = adjust_stock(db, data, current_user.full_name)
+    mv = adjust_stock(db, data, current_user)
     return {"message": "Stock adjusted", "movement_id": str(mv.id)}
 
 

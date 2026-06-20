@@ -71,14 +71,14 @@ def get_bom_route(bom_id: str, db: Session = Depends(get_db), _=Depends(get_curr
 
 
 @router.get("/orders", response_model=PaginatedResponse[ManufacturingOrderResponse])
-def list_orders(status: Optional[str] = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), _=Depends(get_current_user)):
-    items, total = get_manufacturing_orders(db, status, page, page_size)
+def list_orders(status: Optional[str] = None, view: Optional[str] = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    items, total = get_manufacturing_orders(db, status, view, current_user, page, page_size)
     return PaginatedResponse(items=[_mo_resp(m) for m in items], total=total, page=page, page_size=page_size, pages=math.ceil(total / page_size))
 
 
 @router.post("/orders", response_model=ManufacturingOrderResponse, status_code=201)
 def create_order(data: ManufacturingOrderCreate, db: Session = Depends(get_db), current_user=Depends(require_roles(["admin", "manager", "production_operator"]))):
-    return _mo_resp(create_manufacturing_order(db, data, current_user.full_name))
+    return _mo_resp(create_manufacturing_order(db, data, current_user))
 
 
 @router.get("/orders/{mo_id}", response_model=ManufacturingOrderResponse)
@@ -98,12 +98,12 @@ def reserve(mo_id: str, db: Session = Depends(get_db), current_user=Depends(requ
 
 @router.post("/orders/{mo_id}/start", response_model=ManufacturingOrderResponse)
 def start(mo_id: str, db: Session = Depends(get_db), current_user=Depends(require_roles(["admin", "manager", "production_operator"]))):
-    return _mo_resp(start_manufacturing(db, mo_id, current_user.full_name))
+    return _mo_resp(start_manufacturing(db, mo_id, current_user))
 
 
 @router.post("/orders/{mo_id}/complete", response_model=ManufacturingOrderResponse)
 def complete(mo_id: str, db: Session = Depends(get_db), current_user=Depends(require_roles(["admin", "manager", "production_operator"]))):
-    return _mo_resp(complete_manufacturing(db, mo_id, current_user.full_name))
+    return _mo_resp(complete_manufacturing(db, mo_id, current_user))
 
 
 @router.post("/orders/{mo_id}/cancel", response_model=ManufacturingOrderResponse)

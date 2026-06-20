@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import RawMaterialShops from "@/components/dashboard/RawMaterialShops";
 import { ShoppingBag, Users, TrendingUp, DollarSign } from "lucide-react";
+import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
+import MyOpenOrders from "@/components/dashboard/MyOpenOrders";
 
 export default function PurchasingDashboardPage() {
   return (
@@ -35,8 +37,12 @@ export default function PurchasingDashboardPage() {
         ))}
       </div>
 
-      {/* Raw Material Purchasing Shops component */}
       <RawMaterialShops />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <MyOpenOrders module="purchases" />
+        <ActivityTimeline module="Purchases" view="my" />
+      </div>
     </div>
   );
 }

@@ -31,12 +31,15 @@ def refresh(data: RefreshRequest, db: Session = Depends(get_db)):
     return auth_service.refresh_tokens(db, data.refresh_token)
 
 
+from app.api.v1.activities import log_activity
+
 @router.post("/logout")
 def logout(current_user=Depends(get_current_user), db: Session = Depends(get_db), request: Request = None):
     auth_header = request.headers.get("Authorization", "") if request else ""
     token = auth_header.replace("Bearer ", "") if auth_header else ""
     auth_service.logout_user(db, token, str(current_user.id))
     log_action(db, "logout", "users", str(current_user.id), user_name=current_user.full_name)
+    log_activity(db, str(current_user.id), current_user.full_name, "User Logout", "Auth")
     db.commit()
     return {"message": "Logged out successfully"}
 

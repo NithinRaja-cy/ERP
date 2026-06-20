@@ -55,7 +55,7 @@ def list_products(
 
 @router.post("", response_model=ProductResponse, status_code=201)
 def create_product(data: ProductCreate, db: Session = Depends(get_db), current_user=Depends(require_roles(["admin", "manager"]))):
-    p = product_service.create_product(db, data, current_user.full_name)
+    p = product_service.create_product(db, data, current_user)
     return _to_resp(p)
 
 

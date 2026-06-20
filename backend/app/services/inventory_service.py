@@ -8,6 +8,8 @@ from fastapi import HTTPException
 from app.models.inventory import StockMovement, InventoryReservation
 from app.models.product import Product
 from app.schemas.inventory import StockAdjustRequest
+from app.api.v1.activities import log_activity
+from app.models.user import User
 
 def record_movement(
     db: Session,
@@ -80,15 +82,16 @@ def release_reservation(db: Session, reference_id: str) -> None:
             product.reserved_qty = max(0.0, product.reserved_qty - r.quantity)
         r.is_released = "true"
 
-def adjust_stock(db: Session, data: StockAdjustRequest, user_name: str = "System") -> StockMovement:
+def adjust_stock(db: Session, data: StockAdjustRequest, current_user: User) -> StockMovement:
     mv = record_movement(
         db,
         product_id=data.product_id,
         quantity_delta=data.quantity_delta,
         movement_type="adjustment",
         notes=data.notes,
-        created_by=user_name,
+        created_by=current_user.full_name,
     )
+    log_activity(db, str(current_user.id), current_user.full_name, "Inventory Updated", "Inventory", details=f"Delta: {data.quantity_delta}")
     db.commit()
     return mv
 

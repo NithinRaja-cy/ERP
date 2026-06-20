@@ -6,7 +6,8 @@ import { LayoutDashboard, Package, ClipboardList, LogOut } from 'lucide-react';
 const nav = [
   { name: 'Dashboard',        icon: LayoutDashboard, href: '/sales-dashboard' },
   { name: 'Products',         icon: Package,         href: '/sales-dashboard/products' },
-  { name: 'Sales Orders',     icon: ClipboardList,   href: '/sales-dashboard/orders' },
+  { name: 'All Orders',       icon: ClipboardList,   href: '/sales-dashboard/orders' },
+  { name: 'My Orders',        icon: ClipboardList,   href: '/sales-dashboard/orders?view=my' },
 ];
 
 export default function SalesSidebar() {

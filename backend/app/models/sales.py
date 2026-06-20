@@ -9,7 +9,8 @@ class SalesOrder(UUIDBase):
     customer_id = Column(String(36), ForeignKey("customers.id"), nullable=False, index=True)
     status = Column(
         String(20), nullable=False, default="draft", index=True
-    )  # draft|confirmed|delivered|closed|cancelled
+    )  # draft|confirmed|partially_delivered|delivered|cancelled
+    assigned_to = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     subtotal = Column(Float, default=0.0, nullable=False)
     tax_rate = Column(Float, default=0.0, nullable=False)
     tax_amount = Column(Float, default=0.0, nullable=False)

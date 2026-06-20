@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Edit3, X } from "lucide-react";
+import WorkflowTimeline from "@/components/dashboard/WorkflowTimeline";
 
 type MfgOrder = { id: string; product: string; qty: number; start: string; status: string };
 
@@ -15,11 +17,34 @@ const initialOrders: MfgOrder[] = [
   { id: "MO-2026-003", product: "3-Door Wardrobe (Walnut)", qty: 10, start: "2026-06-18", status: "COMPLETED" },
 ];
 
-export default function MfgOrdersPage() {
-  const [orders, setOrders] = useState<MfgOrder[]>(initialOrders);
+function MfgOrdersContent() {
+  const [orders, setOrders] = useState<any[]>(initialOrders);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<MfgOrder | null>(null);
-  const [formData, setFormData] = useState({ product: "", qty: 0, status: "QUEUED" });
+  const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [formData, setFormData] = useState({ product: "", qty: 0, status: "draft" });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const view = searchParams.get('view') || 'all';
+
+  useEffect(() => {
+    fetchOrders();
+  }, [view]);
+
+  const fetchOrders = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`http://localhost:8000/api/v1/manufacturing/orders?view=${view}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data.items || []);
+      }
+    } catch (err) {
+      console.warn('Could not fetch manufacturing orders from backend, using local data.', err);
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingOrder(null);
@@ -61,9 +86,16 @@ export default function MfgOrdersPage() {
           <h2 className="text-3xl font-bold tracking-tight text-white">Manufacturing Orders</h2>
           <p className="text-slate-400 mt-1">Schedule furniture builds, configure lines, and dispatch works orders.</p>
         </div>
-        <Button onClick={handleOpenAdd} className="bg-violet-600 hover:bg-violet-700 text-white">
-          <Plus className="mr-2 h-4 w-4" /> Create Work Order
-        </Button>
+        <div className="flex gap-3">
+          <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
+            <Button size="sm" variant={view === 'all' ? 'secondary' : 'ghost'} className={view === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400'} onClick={() => router.push('/mfg-dashboard/orders')}>
+              All Orders
+            </Button>
+            <Button size="sm" variant={view === 'my' ? 'secondary' : 'ghost'} className={view === 'my' ? 'bg-slate-800 text-white' : 'text-slate-400'} onClick={() => router.push('/mfg-dashboard/orders?view=my')}>
+              My Orders
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Card className="bg-slate-900 border-slate-800">
@@ -86,26 +118,37 @@ export default function MfgOrdersPage() {
             <TableBody>
               {orders.map((order) => (
                 <TableRow key={order.id} className="border-slate-800 hover:bg-slate-800/50">
-                  <TableCell className="font-mono text-violet-400">{order.id}</TableCell>
-                  <TableCell className="text-white font-medium">{order.product}</TableCell>
-                  <TableCell className="text-slate-300">{order.qty} units</TableCell>
-                  <TableCell className="text-slate-400">{order.start}</TableCell>
+                  <TableCell className="font-mono text-violet-400">{order.mo_number}</TableCell>
+                  <TableCell className="text-white font-medium">{order.product_name || 'N/A'}</TableCell>
+                  <TableCell className="text-slate-300">{order.planned_qty} units</TableCell>
+                  <TableCell className="text-slate-400">{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</TableCell>
                   <TableCell>
-                    <Badge className={
-                      order.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                      order.status === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-slate-700/10 text-slate-400 border-slate-800'
-                    } variant="outline">
-                      {order.status}
-                    </Badge>
+                    <WorkflowTimeline currentStatus={order.status} steps={['draft', 'ready', 'in_progress', 'completed', 'cancelled']} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(order)} className="text-slate-400 hover:text-white">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(order.id)} className="text-slate-400 hover:text-rose-400">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {order.status === 'ready' && (
+                        <Button size="sm" variant="outline" className="text-violet-400 border-violet-500/20 hover:bg-violet-500/10" onClick={async () => {
+                          const res = await fetch(`http://localhost:8000/api/v1/manufacturing/orders/${order.id}/start`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          if(res.ok) fetchOrders();
+                        }}>
+                          Start
+                        </Button>
+                      )}
+                      {order.status === 'in_progress' && (
+                        <Button size="sm" variant="outline" className="text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10" onClick={async () => {
+                          const res = await fetch(`http://localhost:8000/api/v1/manufacturing/orders/${order.id}/complete`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                          });
+                          if(res.ok) fetchOrders();
+                        }}>
+                          Complete
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -115,7 +158,6 @@ export default function MfgOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <Card className="bg-slate-900 border-slate-800 w-full max-w-md p-6 relative">
@@ -167,5 +209,13 @@ export default function MfgOrdersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MfgOrdersPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-400 p-6">Loading orders...</div>}>
+      <MfgOrdersContent />
+    </Suspense>
   );
 }

@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, ShoppingCart, Target, Heart } from "lucide-react";
+import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
+import MyOpenOrders from "@/components/dashboard/MyOpenOrders";
 
 const recentOrders = [
   { id: "SO-2026-001", customer: "Priya Sharma", date: "2026-06-19", amount: "₹45,000", status: "CONFIRMED" },
@@ -79,6 +81,11 @@ export default function SalesDashboardPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <MyOpenOrders module="sales" />
+        <ActivityTimeline module="Sales" view="my" />
+      </div>
     </div>
   );
 }

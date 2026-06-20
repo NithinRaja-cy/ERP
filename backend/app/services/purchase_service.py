@@ -11,6 +11,8 @@ from app.schemas.vendor import VendorCreate, VendorUpdate
 from app.schemas.purchase import PurchaseOrderCreate
 from app.services.inventory_service import record_movement
 from app.services.audit_service import log_action
+from app.api.v1.activities import log_activity
+from app.models.user import User
 
 
 def get_vendors(db: Session, search: Optional[str] = None, page: int = 1, page_size: int = 20) -> Tuple[List[Vendor], int]:
@@ -69,6 +71,8 @@ def get_purchase_orders(
     status: Optional[str] = None,
     vendor_id: Optional[str] = None,
     search: Optional[str] = None,
+    view: Optional[str] = None,
+    current_user: Optional[User] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[PurchaseOrder], int]:
@@ -82,6 +86,8 @@ def get_purchase_orders(
         q = q.filter(PurchaseOrder.vendor_id == vendor_id)
     if search:
         q = q.filter(PurchaseOrder.order_number.ilike(f"%{search}%"))
+    if view == "my" and current_user:
+        q = q.filter(PurchaseOrder.assigned_to == str(current_user.id))
     q = q.order_by(PurchaseOrder.created_at.desc())
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
@@ -98,7 +104,7 @@ def get_purchase_order(db: Session, order_id: str) -> PurchaseOrder:
     return po
 
 
-def create_purchase_order(db: Session, data: PurchaseOrderCreate, user_name: str = "System") -> PurchaseOrder:
+def create_purchase_order(db: Session, data: PurchaseOrderCreate, current_user: User) -> PurchaseOrder:
     from app.models.product import Product
     subtotal = 0.0
     item_rows = []
@@ -127,22 +133,24 @@ def create_purchase_order(db: Session, data: PurchaseOrderCreate, user_name: str
         total_amount=subtotal,
         notes=data.notes,
         expected_date=data.expected_date,
-        created_by=user_name,
+        created_by=current_user.full_name,
+        assigned_to=str(current_user.id),
         items=item_rows,
     )
     db.add(po)
     db.commit()
     db.refresh(po)
-    log_action(db, "create", "purchase_orders", str(po.id), new_values={"order_number": po.order_number}, user_name=user_name)
+    log_action(db, "create", "purchase_orders", str(po.id), new_values={"order_number": po.order_number}, user_name=current_user.full_name)
     db.commit()
     return get_purchase_order(db, str(po.id))
 
 
-def confirm_purchase_order(db: Session, order_id: str, user_name: str = "System") -> PurchaseOrder:
+def confirm_purchase_order(db: Session, order_id: str, current_user: User) -> PurchaseOrder:
     po = get_purchase_order(db, order_id)
     if po.status != "draft":
         raise HTTPException(status_code=400, detail=f"Cannot confirm PO in status '{po.status}'")
     po.status = "ordered"
+    log_activity(db, str(current_user.id), current_user.full_name, "PO Approved", "Purchases", details=po.order_number)
     db.commit()
     return get_purchase_order(db, order_id)
 

@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 import app.models  # noqa — ensures all models are registered
 
-from app.api.v1 import auth, dashboard, products, customers, vendors, inventory, sales, purchases, manufacturing, reports, ai
+from app.api.v1 import auth, dashboard, products, customers, vendors, inventory, sales, purchases, manufacturing, reports, ai, activities
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[f"{settings.RATE_LIMIT_PER_MINUTE}/minute"])
 
@@ -58,3 +58,4 @@ app.include_router(purchases.router)
 app.include_router(manufacturing.router)
 app.include_router(reports.router)
 app.include_router(ai.router)
+app.include_router(activities.router)

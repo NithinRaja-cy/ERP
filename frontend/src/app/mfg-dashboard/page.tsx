@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Factory, Layers, Cpu, Award } from "lucide-react";
+import ActivityTimeline from "@/components/dashboard/ActivityTimeline";
+import MyOpenOrders from "@/components/dashboard/MyOpenOrders";
 
 const runs = [
   { id: "MO-2026-001", item: "Royal Teak Bed Frame", progress: "45%", line: "Assembly Line 1", status: "RUNNING" },
@@ -78,6 +80,11 @@ export default function MfgDashboardPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <MyOpenOrders module="manufacturing" />
+        <ActivityTimeline module="Manufacturing" view="my" />
+      </div>
     </div>
   );
 }

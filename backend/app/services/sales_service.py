@@ -11,6 +11,8 @@ from app.schemas.customer import CustomerCreate, CustomerUpdate
 from app.schemas.sales import SalesOrderCreate, SalesOrderResponse
 from app.services.inventory_service import record_movement, reserve_stock, release_reservation
 from app.services.audit_service import log_action
+from app.api.v1.activities import log_activity
+from app.models.user import User
 
 
 def get_customers(
@@ -96,6 +98,8 @@ def get_sales_orders(
     status: Optional[str] = None,
     customer_id: Optional[str] = None,
     search: Optional[str] = None,
+    view: Optional[str] = None,
+    current_user: Optional[User] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[SalesOrder], int]:
@@ -109,6 +113,8 @@ def get_sales_orders(
         q = q.filter(SalesOrder.customer_id == customer_id)
     if search:
         q = q.filter(SalesOrder.order_number.ilike(f"%{search}%"))
+    if view == "my" and current_user:
+        q = q.filter(SalesOrder.assigned_to == str(current_user.id))
     q = q.order_by(SalesOrder.created_at.desc())
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
@@ -125,7 +131,7 @@ def get_sales_order(db: Session, order_id: str) -> SalesOrder:
     return so
 
 
-def create_sales_order(db: Session, data: SalesOrderCreate, user_name: str = "System") -> SalesOrder:
+def create_sales_order(db: Session, data: SalesOrderCreate, current_user: User) -> SalesOrder:
     from app.models.product import Product
     subtotal = 0.0
     item_rows = []
@@ -159,13 +165,15 @@ def create_sales_order(db: Session, data: SalesOrderCreate, user_name: str = "Sy
         total_amount=total,
         notes=data.notes,
         delivery_date=data.delivery_date,
-        created_by=user_name,
+        created_by=current_user.full_name,
+        assigned_to=str(current_user.id),
         items=item_rows,
     )
     db.add(so)
     db.commit()
     db.refresh(so)
-    log_action(db, "create", "sales_orders", str(so.id), new_values={"order_number": so.order_number}, user_name=user_name)
+    log_action(db, "create", "sales_orders", str(so.id), new_values={"order_number": so.order_number}, user_name=current_user.full_name)
+    log_activity(db, str(current_user.id), current_user.full_name, "SO Created", "Sales", details=so.order_number)
     db.commit()
     return get_sales_order(db, str(so.id))
 
